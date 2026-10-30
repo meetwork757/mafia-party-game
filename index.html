@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mafia Party Game</title>
+<style>
+body { font-family: Arial, sans-serif; background: #1a1a2e; color: white; margin: 0; padding: 20px; max-width: 500px; margin: auto; }
+.card { background: #16213e; border-radius: 15px; padding: 20px; margin: 15px 0; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+h1 { color: #e94560; }
+input, button { width: 100%; padding: 12px; margin: 8px 0; border: none; border-radius: 8px; font-size: 16px; }
+button { background: #e94560; color: white; cursor: pointer; }
+button:disabled { background: #555; }
+.players { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.player { background: #0f3460; padding: 10px; border-radius: 10px; min-width: 80px; }
+.role-card { font-size: 24px; padding: 30px; background: linear-gradient(135deg, #e94560, #0f3460); }
+#chat { height: 200px; overflow-y: auto; background: #0f3460; padding: 10px; border-radius: 10px; margin: 10px 0; }
+.vote-btn { background: #0f3460; margin: 5px; width: auto; padding: 8px 15px; }
+</style>
+</head>
+<body>
+<div id="lobby" class="card">
+<h1>Mafia Game</h1>
+<p>Min 5, Max 10 players</p>
+<input id="username" placeholder="Enter your username" maxlength="15">
+<button id="joinBtn">Join Game</button>
+<div id="playerList" class="players"></div>
+<p id="status">Waiting for players...</p>
+<button id="readyBtn" disabled>I'm Ready</button>
+</div>
+<div id="game" class="card" style="display:none;">
+<div class="role-card" id="roleCard">
+<h2 id="myName"></h2>
+<h1 id="myRole"></h1>
+</div>
+<div id="chat"></div>
+<input id="msg" placeholder="Type message...">
+<button id="sendBtn">Send</button>
+<h3>Vote for Mafia</h3>
+<div id="voteList"></div>
+<button id="endVote" disabled>Show Results</button>
+</div>
+<script>
+let players = [];
+let ready = {};
+let roles = {};
+let myId = null;
+let votes = {};
+let messages = [];
+const minPlayers = 5;
+const maxPlayers = 10;
+document.getElementById('joinBtn').onclick = () => {
+  const name = document.getElementById('username').value.trim();
+  if (!name || players.length >= maxPlayers) return;
+  if (players.find(p => p.name === name)) return alert('Name taken');
+  myId = Date.now().toString();
+  players.push({id: myId, name});
+  ready[myId] = false;
+  updateLobby();
+  document.getElementById('joinBtn').disabled = true;
+  document.getElementById('username').disabled = true;
+  document.getElementById('readyBtn').disabled = false;
+};
+document.getElementById('readyBtn').onclick = () => {
+  ready[myId] = true;
+  document.getElementById('readyBtn').disabled = true;
+  updateLobby();
+  checkStart();
+};
+function updateLobby() {
+  const list = document.getElementById('playerList');
+  list.innerHTML = players.map(p => `<div class="player">${p.name} ${ready[p.id] ? '✅' : '⏳'}</div>`).join('');
+  document.getElementById('status').textContent = `${players.length}/${maxPlayers} players. Min ${minPlayers}. ${Object.values(ready).filter(Boolean).length} ready.`;
+}
+function checkStart() {
+  if (players.length >= minPlayers && players.length <= maxPlayers && Object.values(ready).every(Boolean)) {
+    assignRoles();
+    startGame();
+  }
+}
+function assignRoles() {
+  const ids = players.map(p => p.id);
+  const shuffled = [...ids].sort(() => Math.random() - 0.5);
+  roles[shuffled[0]] = 'Mafia';
+  roles[shuffled[1]] = 'Mafia';
+  roles[shuffled[2]] = 'Savior';
+  for (let i = 3; i < shuffled.length; i++) roles[shuffled[i]] = 'Citizen';
+}
+function startGame() {
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  const me = players.find(p => p.id === myId);
+  document.getElementById('myName').textContent = me.name;
+  document.getElementById('myRole').textContent = roles[myId];
+  updateVoteList();
+}
+document.getElementById('sendBtn').onclick = () => {
+  const text = document.getElementById('msg').value.trim();
+  if (!text) return;
+  const me = players.find(p => p.id === myId);
+  messages.push(`${me.name}: ${text}`);
+  document.getElementById('chat').innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+  document.getElementById('msg').value = '';
+  document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+};
+function updateVoteList() {
+  const list = document.getElementById('voteList');
+  list.innerHTML = players.map(p => `<button class="vote-btn" onclick="vote('${p.id}')">${p.name}</button>`).join('');
+}
+function vote(id) {
+  votes[myId] = id;
+  document.getElementById('endVote').disabled = false;
+  alert('Vote recorded!');
+}
+document.getElementById('endVote').onclick = () => {
+  const counts = {};
+  Object.values(votes).forEach(v => counts[v] = (counts[v] || 0) + 1);
+  const max = Math.max(...Object.values(counts));
+  const voted = Object.keys(counts).filter(k => counts[k] === max);
+  const names = voted.map(id => players.find(p => p.id === id).name).join(', ');
+  alert(`Most voted: ${names}`);
+};
+</script>
+</body>
+</html>
